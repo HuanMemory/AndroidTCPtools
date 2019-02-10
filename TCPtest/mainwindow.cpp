@@ -12,7 +12,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->Edit_IP->addItem("127.0.0.1");
     ui->TextBrowser->setText("DLUT Smartcar TCP Tools. by ZBT.");
     ui->tabWidget->setCurrentIndex(0);
-
+    //恢复历史信息
     if(DefaultSettings.contains("IP"))
         ui->Edit_IP->setCurrentText(DefaultSettings.value("IP").toString());
     else
@@ -41,12 +41,39 @@ MainWindow::MainWindow(QWidget *parent) :
         ui->Edit_button4->setText(DefaultSettings.value("BTN4_NAME").toString());
         ui->Button_func4->setText(DefaultSettings.value("BTN4_NAME").toString());
     }
+    if(DefaultSettings.contains("REC_SETTING"))
+    {
+        Rec_setting = (DrawType)DefaultSettings.value("REC_SETTING").toInt();
+        if(Rec_setting == DRAW_WAVE)
+            ui->Radio_decode->setChecked(true);
+        else if(Rec_setting == DRAW_STRING)
+            ui->Radio_string->setChecked(true);
+    }
+    else
+        Rec_setting = DRAW_NOTHING;
 
+    //初始化控件
     tcpClient = new QTcpSocket(this);
     tcpClient->abort();
     connect(tcpClient, SIGNAL(readyRead()), this, SLOT(TCPReadData()));
     connect(tcpClient, SIGNAL(error(QAbstractSocket::SocketError)),this, SLOT(TCPReadError(QAbstractSocket::SocketError)));
     Linked = false;
+
+    //初始化绘图
+    QSharedPointer<QCPAxisTickerTime> timeTicker(new QCPAxisTickerTime);
+    timeTicker->setTimeFormat("%m:%s");
+    ui->Plot->addGraph();
+    ui->Plot->addGraph();
+    ui->Plot->addGraph();
+    ui->Plot->addGraph();
+    ui->Plot->addGraph();
+    ui->Plot->xAxis->setTicker(timeTicker);
+    ui->Plot->graph(0)->setPen(QPen(QColor("red")));
+    ui->Plot->graph(1)->setPen(QPen(QColor("blue")));
+    ui->Plot->graph(2)->setPen(QPen(QColor("aqua")));
+    ui->Plot->graph(3)->setPen(QPen(QColor("lime")));
+    ui->Plot->graph(4)->setPen(QPen(QColor("black")));
+    ui->Plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
 }
 
 MainWindow::~MainWindow()
@@ -57,11 +84,41 @@ MainWindow::~MainWindow()
 void MainWindow::TCPReadData()
 {
     QByteArray buffer = tcpClient->readAll();
+    static int Decode_status = 0;   //0~3 Header 4 Rec
     if(!buffer.isEmpty())
     {
-       ui->TextBrowser->append(buffer);
-       if(ui->TextBrowser->document()->lineCount()>10)
-           ui->TextBrowser->clear();
+        if(Rec_setting == DRAW_STRING)
+        {
+            ui->TextBrowser->append(buffer);
+            if(ui->TextBrowser->document()->lineCount()>10)
+                ui->TextBrowser->clear();
+        }
+        else if(Rec_setting == DRAW_WAVE)
+        {
+            if(Rec_FIFO.count()<48*8)
+                Rec_FIFO.append(buffer);
+            while(Rec_FIFO.count()>0)
+            {
+                while(Decode_status<4)
+                {
+                    if(Rec_FIFO.at(0) == 0x5A)
+                        Decode_status++;
+                    Rec_FIFO.remove(0,1);
+                    if(Rec_FIFO.count()==0)
+                        break;
+                }
+                if(Decode_status == 4 && Rec_FIFO.count()>44)
+                {
+                    for(int i = 0; i<44 ; i++)
+                        Rec_Data.buf[i] = Rec_FIFO.at(i);
+                    Rec_FIFO.remove(0,44);
+                    Decode_status = 0;
+                    Refresh_Wave();
+                }
+                else
+                    break;
+            }
+        }
     }
 }
 
@@ -203,4 +260,66 @@ void MainWindow::on_Button_func3_clicked()
 void MainWindow::on_Button_func4_clicked()
 {
     Send_data(SENDTYPE_FUNC,5,0);
+}
+
+void MainWindow::on_Radio_none_toggled(bool checked)
+{
+    if(checked)
+    {
+        Rec_setting = DRAW_NOTHING;
+        ui->TextBrowser->clear();
+        DefaultSettings.setValue("REC_SETTING",DRAW_NOTHING);
+    }
+}
+
+void MainWindow::on_Radio_decode_toggled(bool checked)
+{
+    if(checked)
+    {
+        Rec_setting = DRAW_WAVE;
+        ui->TextBrowser->clear();
+        DefaultSettings.setValue("REC_SETTING",DRAW_WAVE);
+    }
+}
+
+void MainWindow::on_Radio_string_toggled(bool checked)
+{
+    if(checked)
+    {
+        Rec_setting = DRAW_STRING;
+        ui->TextBrowser->clear();
+        DefaultSettings.setValue("REC_SETTING",DRAW_STRING);
+    }
+}
+
+void MainWindow::Refresh_Wave()
+{
+    static QTime time(QTime::currentTime());
+    double key = time.elapsed()/1000.0;
+    ui->Plot->graph(0)->addData(key, Rec_Data.data.val[0]);
+    ui->Plot->graph(1)->addData(key, Rec_Data.data.val[1]);
+    ui->Plot->graph(2)->addData(key, Rec_Data.data.val[2]);
+    ui->Plot->graph(3)->addData(key, Rec_Data.data.val[3]);
+    ui->Plot->graph(4)->addData(key, 0);
+    if(ui->Plot->graph(0)->dataCount()>10)
+    {
+        double firstsortKey = ui->Plot->graph(0)->data()->at(0)->sortKey();
+        ui->Plot->graph(0)->data()->remove(firstsortKey);
+        ui->Plot->graph(1)->data()->remove(firstsortKey);
+        ui->Plot->graph(2)->data()->remove(firstsortKey);
+        ui->Plot->graph(3)->data()->remove(firstsortKey);
+        ui->Plot->graph(4)->data()->remove(firstsortKey);
+    }
+    ui->Plot->rescaleAxes();
+    ui->Plot->replot();
+}
+
+void MainWindow::on_Button_clear_clicked()
+{
+    ui->Plot->graph(0)->data()->clear();
+    ui->Plot->graph(1)->data()->clear();
+    ui->Plot->graph(2)->data()->clear();
+    ui->Plot->graph(3)->data()->clear();
+    ui->Plot->graph(4)->data()->clear();
+    ui->Plot->replot();
 }

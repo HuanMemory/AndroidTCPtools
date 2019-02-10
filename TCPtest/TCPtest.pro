@@ -6,6 +6,8 @@
 
 QT       += core gui
 QT       += network
+QT       += widgets
+QT       += printsupport
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -26,11 +28,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
-        main.cpp \
-        mainwindow.cpp
+    main.cpp \
+    mainwindow.cpp \
+    qcustomplot.cpp
 
 HEADERS += \
-        mainwindow.h
+    mainwindow.h \
+    qcustomplot.h
 
 FORMS += \
         mainwindow.ui
