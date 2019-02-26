@@ -301,7 +301,7 @@ void MainWindow::Refresh_Wave()
     ui->Plot->graph(2)->addData(key, Rec_Data.data.val[2]);
     ui->Plot->graph(3)->addData(key, Rec_Data.data.val[3]);
     ui->Plot->graph(4)->addData(key, 0);
-    if(ui->Plot->graph(0)->dataCount()>10)
+    if(ui->Plot->graph(0)->dataCount()>2000)
     {
         double firstsortKey = ui->Plot->graph(0)->data()->at(0)->sortKey();
         ui->Plot->graph(0)->data()->remove(firstsortKey);
