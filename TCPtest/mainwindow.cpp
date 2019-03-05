@@ -21,36 +21,6 @@ MainWindow::MainWindow(QWidget *parent) :
         ui->Edit_Port->setValue(DefaultSettings.value("PORT").toInt());
     else
         ui->Edit_Port->setValue(3721);
-    if(DefaultSettings.contains("BTN1_NAME"))
-    {
-        ui->Edit_button1->setText(DefaultSettings.value("BTN1_NAME").toString());
-        ui->Button_func1->setText(DefaultSettings.value("BTN1_NAME").toString());
-    }
-    if(DefaultSettings.contains("BTN2_NAME"))
-    {
-        ui->Edit_button2->setText(DefaultSettings.value("BTN2_NAME").toString());
-        ui->Button_func2->setText(DefaultSettings.value("BTN2_NAME").toString());
-    }
-    if(DefaultSettings.contains("BTN3_NAME"))
-    {
-        ui->Edit_button3->setText(DefaultSettings.value("BTN3_NAME").toString());
-        ui->Button_func3->setText(DefaultSettings.value("BTN3_NAME").toString());
-    }
-    if(DefaultSettings.contains("BTN4_NAME"))
-    {
-        ui->Edit_button4->setText(DefaultSettings.value("BTN4_NAME").toString());
-        ui->Button_func4->setText(DefaultSettings.value("BTN4_NAME").toString());
-    }
-    if(DefaultSettings.contains("REC_SETTING"))
-    {
-        Rec_setting = (DrawType)DefaultSettings.value("REC_SETTING").toInt();
-        if(Rec_setting == DRAW_WAVE)
-            ui->Radio_decode->setChecked(true);
-        else if(Rec_setting == DRAW_STRING)
-            ui->Radio_string->setChecked(true);
-    }
-    else
-        Rec_setting = DRAW_NOTHING;
 
     //初始化控件
     tcpClient = new QTcpSocket(this);
@@ -58,21 +28,17 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(tcpClient, SIGNAL(readyRead()), this, SLOT(TCPReadData()));
     connect(tcpClient, SIGNAL(error(QAbstractSocket::SocketError)),this, SLOT(TCPReadError(QAbstractSocket::SocketError)));
     Linked = false;
-
+    QtimerId = startTimer(100);
     //初始化绘图
     QSharedPointer<QCPAxisTickerTime> timeTicker(new QCPAxisTickerTime);
     timeTicker->setTimeFormat("%m:%s");
     ui->Plot->addGraph();
     ui->Plot->addGraph();
     ui->Plot->addGraph();
-    ui->Plot->addGraph();
-    ui->Plot->addGraph();
     ui->Plot->xAxis->setTicker(timeTicker);
     ui->Plot->graph(0)->setPen(QPen(QColor("red")));
     ui->Plot->graph(1)->setPen(QPen(QColor("blue")));
-    ui->Plot->graph(2)->setPen(QPen(QColor("aqua")));
-    ui->Plot->graph(3)->setPen(QPen(QColor("lime")));
-    ui->Plot->graph(4)->setPen(QPen(QColor("black")));
+    ui->Plot->graph(2)->setPen(QPen(QColor("black")));
     ui->Plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
 }
 
@@ -87,37 +53,28 @@ void MainWindow::TCPReadData()
     static int Decode_status = 0;   //0~3 Header 4 Rec
     if(!buffer.isEmpty())
     {
-        if(Rec_setting == DRAW_STRING)
+        if(Rec_FIFO.count()<48*8)
+            Rec_FIFO.append(buffer);
+        while(Rec_FIFO.count()>0)
         {
-            ui->TextBrowser->append(buffer);
-            if(ui->TextBrowser->document()->lineCount()>10)
-                ui->TextBrowser->clear();
-        }
-        else if(Rec_setting == DRAW_WAVE)
-        {
-            if(Rec_FIFO.count()<48*8)
-                Rec_FIFO.append(buffer);
-            while(Rec_FIFO.count()>0)
+            while(Decode_status<4)
             {
-                while(Decode_status<4)
-                {
-                    if(Rec_FIFO.at(0) == 0x5A)
-                        Decode_status++;
-                    Rec_FIFO.remove(0,1);
-                    if(Rec_FIFO.count()==0)
-                        break;
-                }
-                if(Decode_status == 4 && Rec_FIFO.count()>44)
-                {
-                    for(int i = 0; i<44 ; i++)
-                        Rec_Data.buf[i] = Rec_FIFO.at(i);
-                    Rec_FIFO.remove(0,44);
-                    Decode_status = 0;
-                    Refresh_Wave();
-                }
-                else
+                if(Rec_FIFO.at(0) == 0x7A)
+                    Decode_status++;
+                Rec_FIFO.remove(0,1);
+                if(Rec_FIFO.count()==0)
                     break;
             }
+            if(Decode_status == 4 && Rec_FIFO.count()>44)
+            {
+                for(int i = 0; i<44 ; i++)
+                    Rec_Data.buf[i] = Rec_FIFO.at(i);
+                Rec_FIFO.remove(0,44);
+                Decode_status = 0;
+                Refresh_Wave();
+            }
+            else
+                break;
         }
     }
 }
@@ -161,154 +118,50 @@ void MainWindow::on_Button_Link_clicked()
     }
 }
 
-void MainWindow::on_Button_apply_clicked()
+void MainWindow::Send_data(quint8 cmd, quint8 type, int32_t value)
 {
-    ui->Button_func1->setText(ui->Edit_button1->text());
-    ui->Button_func2->setText(ui->Edit_button2->text());
-    ui->Button_func3->setText(ui->Edit_button3->text());
-    ui->Button_func4->setText(ui->Edit_button4->text());
-    DefaultSettings.setValue("BTN1_NAME",ui->Edit_button1->text());
-    DefaultSettings.setValue("BTN2_NAME",ui->Edit_button2->text());
-    DefaultSettings.setValue("BTN3_NAME",ui->Edit_button3->text());
-    DefaultSettings.setValue("BTN4_NAME",ui->Edit_button4->text());
-}
-
-void MainWindow::on_Button_restore_clicked()
-{
-    QMessageBox msgBox;
-    msgBox.setIcon(QMessageBox::Question);
-    msgBox.setText("清除命令表？");
-    msgBox.setInformativeText("将清楚保存的所有变量表，该操作不可恢复");
-    msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::Cancel);
-    msgBox.setDefaultButton(QMessageBox::Cancel);
-    int ret = msgBox.exec();
-    if(ret == QMessageBox::Cancel)
-        return;
-    ui->Button_func1->setText("功能1");
-    ui->Edit_button1->setText("功能1");
-    ui->Button_func2->setText("功能2");
-    ui->Edit_button2->setText("功能2");
-    ui->Button_func3->setText("功能3");
-    ui->Edit_button3->setText("功能3");
-    ui->Button_func4->setText("功能4");
-    ui->Edit_button4->setText("功能4");
-    DefaultSettings.remove("BTN1_NAME");
-    DefaultSettings.remove("BTN2_NAME");
-    DefaultSettings.remove("BTN3_NAME");
-    DefaultSettings.remove("BTN4_NAME");
-}
-
-void MainWindow::Send_data(SendType Type, int32_t variable, int32_t value)
-{
-    //帧格式：0x7A 0x7A 0x7A Type [int32_t variable] [int32_t value] cmd state len sum
-    if(!Linked)
-    {
-        ui->TextBrowser->append("尚未连接!");
-        return;
-    }
+    //帧格式：0x7B 0x7B 0x7B 0x7B [int32_t speed] [int32_t dir] [int32_t value] cmd type mode sum
     int8_t sum = 0;
     SendData Frame;
-    Frame.data.header[0] = Frame.data.header[1] = Frame.data.header[2] = 0x7A;
-    switch(Type)
-    {
-    case SENDTYPE_FUNC:
-        Frame.data.type = 0x01;
-        Frame.data.variable = variable;
-        Frame.data.value = 0;
-        break;
-    case SENDTYPE_SET:
-        Frame.data.type = 0x02;
-        Frame.data.variable = variable;
-        Frame.data.value = value;
-        break;
-    }
-    Frame.data.cmd = 0;
-    Frame.data.state = 0;
-    Frame.data.len = 0;
-    for(int i = 0;i<15;i++)
+    Frame.data.header[0] = Frame.data.header[1] = Frame.data.header[2] = Frame.data.header[3] = 0x7B;
+    Frame.data.speed = ui->Slider_speed->value();
+    Frame.data.dir = ui->Slider_direction->value();
+    Frame.data.cmd = cmd;
+    Frame.data.type = type;
+    Frame.data.value = value;
+    if(ui->Check_control->isChecked())
+        Frame.data.mode = 1;
+    else
+        Frame.data.mode = 0;
+    for(int i = 0;i<19;i++)
         sum += Frame.buf[i];
     Frame.data.sum = sum;
-    QByteArray data(Frame.buf,16);
+    QByteArray data(Frame.buf,sizeof(Frame));
     tcpClient->write(data);
-}
-
-void MainWindow::on_Button_start_clicked()
-{   //0-Stop 1-Run 2~5 Func1~4
-    Send_data(SENDTYPE_FUNC,0,0);
-}
-
-void MainWindow::on_Button_stop_clicked()
-{
-    Send_data(SENDTYPE_FUNC,1,0);
-}
-
-void MainWindow::on_Button_func1_clicked()
-{
-    Send_data(SENDTYPE_FUNC,2,0);
-}
-
-void MainWindow::on_Button_func2_clicked()
-{
-    Send_data(SENDTYPE_FUNC,3,0);
-}
-
-void MainWindow::on_Button_func3_clicked()
-{
-    Send_data(SENDTYPE_FUNC,4,0);
-}
-
-void MainWindow::on_Button_func4_clicked()
-{
-    Send_data(SENDTYPE_FUNC,5,0);
-}
-
-void MainWindow::on_Radio_none_toggled(bool checked)
-{
-    if(checked)
-    {
-        Rec_setting = DRAW_NOTHING;
-        ui->TextBrowser->clear();
-        DefaultSettings.setValue("REC_SETTING",DRAW_NOTHING);
-    }
-}
-
-void MainWindow::on_Radio_decode_toggled(bool checked)
-{
-    if(checked)
-    {
-        Rec_setting = DRAW_WAVE;
-        ui->TextBrowser->clear();
-        DefaultSettings.setValue("REC_SETTING",DRAW_WAVE);
-    }
-}
-
-void MainWindow::on_Radio_string_toggled(bool checked)
-{
-    if(checked)
-    {
-        Rec_setting = DRAW_STRING;
-        ui->TextBrowser->clear();
-        DefaultSettings.setValue("REC_SETTING",DRAW_STRING);
-    }
 }
 
 void MainWindow::Refresh_Wave()
 {
     static QTime time(QTime::currentTime());
     double key = time.elapsed()/1000.0;
-    ui->Plot->graph(0)->addData(key, Rec_Data.data.val[0]);
-    ui->Plot->graph(1)->addData(key, Rec_Data.data.val[1]);
-    ui->Plot->graph(2)->addData(key, Rec_Data.data.val[2]);
-    ui->Plot->graph(3)->addData(key, Rec_Data.data.val[3]);
-    ui->Plot->graph(4)->addData(key, 0);
+    if(ui->Radio_Speed->isChecked())
+    {
+        ui->Plot->graph(0)->addData(key,Rec_Data.data.SpeedTarget);
+        ui->Plot->graph(1)->addData(key,Rec_Data.data.SpeedMeasure);
+
+    }
+    else if(ui->Radio_Directon->isChecked())
+    {
+        ui->Plot->graph(0)->addData(key,Rec_Data.data.Direction);
+        ui->Plot->graph(1)->addData(key,0);
+    }
+    ui->Plot->graph(2)->addData(key,0);
     if(ui->Plot->graph(0)->dataCount()>2000)
     {
         double firstsortKey = ui->Plot->graph(0)->data()->at(0)->sortKey();
         ui->Plot->graph(0)->data()->remove(firstsortKey);
         ui->Plot->graph(1)->data()->remove(firstsortKey);
         ui->Plot->graph(2)->data()->remove(firstsortKey);
-        ui->Plot->graph(3)->data()->remove(firstsortKey);
-        ui->Plot->graph(4)->data()->remove(firstsortKey);
     }
     if(ui->Checkbox_autoscale->isChecked())
         ui->Plot->rescaleAxes();
@@ -320,7 +173,133 @@ void MainWindow::on_Button_clear_clicked()
     ui->Plot->graph(0)->data()->clear();
     ui->Plot->graph(1)->data()->clear();
     ui->Plot->graph(2)->data()->clear();
-    ui->Plot->graph(3)->data()->clear();
-    ui->Plot->graph(4)->data()->clear();
     ui->Plot->replot();
+}
+
+void MainWindow::on_Radio_Speed_toggled(bool checked)
+{
+    if(!checked)
+        return;
+    ui->Plot->graph(0)->data()->clear();
+    ui->Plot->graph(1)->data()->clear();
+    ui->Plot->graph(2)->data()->clear();
+    ui->Plot->replot();
+}
+
+void MainWindow::on_Radio_Directon_toggled(bool checked)
+{
+    if(!checked)
+        return;
+    ui->Plot->graph(0)->data()->clear();
+    ui->Plot->graph(1)->data()->clear();
+    ui->Plot->graph(2)->data()->clear();
+    ui->Plot->replot();
+}
+
+void MainWindow::on_Button_zero_clicked()
+{
+    ui->Slider_speed->setValue(0);
+    ui->Slider_direction->setValue(0);
+}
+
+void MainWindow::timerEvent(QTimerEvent *event)
+{
+    if(event->timerId() != QtimerId)
+        return;
+    if(!Linked)
+        return;
+    if(CommandList.empty())
+        Send_data(0,0,0);
+    else
+    {
+        CommandData cmd = CommandList.dequeue();
+        Send_data(cmd.cmd,cmd.type,cmd.value);
+    }
+}
+
+void MainWindow::on_Button_sdstart_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+}
+
+void MainWindow::on_Button_sdstop_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+}
+
+void MainWindow::on_Button_lighton_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+}
+
+void MainWindow::on_Button_lightoff_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+}
+
+void MainWindow::on_Button_timesync_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+}
+
+void MainWindow::on_Button_buz_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+    CommandData newcommand;
+    newcommand.cmd = 1;
+    newcommand.type = 5;
+    newcommand.value = 0;
+    CommandList.append(newcommand);
+}
+
+void MainWindow::on_Button_start_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+    CommandData newcommand;
+    newcommand.cmd = 1;
+    newcommand.type = 2;
+    newcommand.value = 0;
+    CommandList.append(newcommand);
+}
+
+void MainWindow::on_Button_stop_clicked()
+{
+    if(!Linked)
+    {
+        ui->TextBrowser->append("尚未连接!");
+        return;
+    }
+    CommandData newcommand;
+    newcommand.cmd = 1;
+    newcommand.type = 1;
+    newcommand.value = 0;
+    CommandList.append(newcommand);
 }

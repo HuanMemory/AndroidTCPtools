@@ -10,36 +10,32 @@
 #include <QScreen>
 #include <QDebug>
 #include <QSettings>
+#include <QQueue>
+#include <QTimerEvent>
 
 namespace Ui {
 class MainWindow;
 }
 
-enum SendType
+typedef struct
 {
-    SENDTYPE_FUNC,
-    SENDTYPE_SET
-};
-
-enum DrawType
-{
-    DRAW_NOTHING,
-    DRAW_STRING,
-    DRAW_WAVE
-};
+    quint8 cmd;
+    quint8 type;
+    int32_t value;
+}CommandData;
 
 union SendData
 {
-    char buf[16];
+    char buf[20];
     struct
     {
-       char header[3];
-       char type;
-       int variable;
-       int value;
-       char cmd;
-       char state;
-       char len;
+       char header[4];
+       int32_t speed;
+       int32_t dir;
+       int32_t value;
+       quint8 cmd;
+       quint8 type;
+       quint8 mode;
        char sum;
     }data;
 };
@@ -49,9 +45,20 @@ union RecData
     char buf[44];
     struct
     {
-        int32_t val[8];
-        int32_t cmd;
-        quint8 cmd_val[8];
+        int32_t SpeedTarget;
+        int32_t SpeedMeasure;
+        int32_t Direction;
+        int32_t Gyro_x;
+        int32_t Gyro_y;
+        int32_t Gyro_z;
+        int32_t Acc_x;
+        int32_t Acc_y;
+        int32_t Acc_z;
+        int32_t Time;
+        quint8 Todo1;
+        quint8 Todo2;
+        quint8 mode;
+        quint8 state;
     }data;
 };
 
@@ -68,35 +75,30 @@ private slots:
     void TCPReadData();
     void TCPReadError(QAbstractSocket::SocketError);
     void on_Button_stop_clicked();
-    void on_Button_apply_clicked();
-    void on_Button_restore_clicked();
     void on_Button_start_clicked();
-    void on_Button_func1_clicked();
-    void on_Button_func2_clicked();
-    void on_Button_func3_clicked();
-    void on_Button_func4_clicked();
-    void on_Radio_none_toggled(bool checked);
-    void on_Radio_decode_toggled(bool checked);
-    void on_Radio_string_toggled(bool checked);
-
     void on_Button_clear_clicked();
+    void on_Button_sdstart_clicked();
+    void on_Radio_Speed_toggled(bool checked);
+    void on_Radio_Directon_toggled(bool checked);
+    void on_Button_sdstop_clicked();
+    void on_Button_lighton_clicked();
+    void on_Button_lightoff_clicked();
+    void on_Button_timesync_clicked();
+    void on_Button_buz_clicked();
+    void on_Button_zero_clicked();
 
 private:
     Ui::MainWindow *ui;
     QTcpSocket *tcpClient;
     QSettings DefaultSettings;
-    /*
-    QVector<double> X_data;
-    QVector<double> Y1_data;
-    QVector<double> Y2_data;
-    QVector<double> Y3_data;
-    QVector<double> Y4_data;*/
     QByteArray Rec_FIFO;
     RecData Rec_Data;
+    QQueue<CommandData> CommandList;
+    int QtimerId;
     bool Linked;
-    DrawType Rec_setting;
-    void Send_data(SendType Type,int variable,int value);
+    void Send_data(quint8 cmd, quint8 type, int32_t value);
     void Refresh_Wave();
+    virtual void timerEvent( QTimerEvent *event);
 };
 
 #endif // MAINWINDOW_H
