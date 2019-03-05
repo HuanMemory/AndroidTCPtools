@@ -8,6 +8,8 @@ QT       += core gui
 QT       += network
 QT       += widgets
 QT       += printsupport
+QT       += sensors
+QT       += positioning
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 

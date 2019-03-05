@@ -28,7 +28,15 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(tcpClient, SIGNAL(readyRead()), this, SLOT(TCPReadData()));
     connect(tcpClient, SIGNAL(error(QAbstractSocket::SocketError)),this, SLOT(TCPReadError(QAbstractSocket::SocketError)));
     Linked = false;
-    QtimerId = startTimer(100);
+    QtimerId = startTimer(200);
+    rotationSensor = new QRotationSensor(this);
+    if(rotationSensor != nullptr)
+    {
+        rotationSensor->start();
+        rotationReading = rotationSensor->reading();
+    }
+    else
+        ui->TextBrowser->append("旋转传感器打开失败!");
     //初始化绘图
     QSharedPointer<QCPAxisTickerTime> timeTicker(new QCPAxisTickerTime);
     timeTicker->setTimeFormat("%m:%s");
@@ -208,6 +216,21 @@ void MainWindow::timerEvent(QTimerEvent *event)
         return;
     if(!Linked)
         return;
+    if(rotationReading != nullptr)
+    {
+        Rotation_x = rotationReading ->x();
+        Rotation_y = rotationReading ->y();
+        ui->TextBrowser->setText(QString("x=%1").arg(Rotation_x));
+        ui->TextBrowser->append(QString("y=%1").arg(Rotation_y));
+        qreal x = (Rotation_x - Rotation_x0)*3;
+        qreal y = (Rotation_y - Rotation_y0)*3;
+        if(x>100) x=100;
+        if(x<-100) x=-100;
+        if(y>100) y=100;
+        if(y<-100) y=-100;
+        ui->Slider_speed->setValue((int)y);
+        ui->Slider_direction->setValue((int)x);
+    }
     if(CommandList.empty())
         Send_data(0,0,0);
     else
@@ -302,4 +325,15 @@ void MainWindow::on_Button_stop_clicked()
     newcommand.type = 1;
     newcommand.value = 0;
     CommandList.append(newcommand);
+}
+
+void MainWindow::on_Check_control_stateChanged(int arg1)
+{
+    if(!arg1)
+        return;
+    if(rotationReading != nullptr)
+    {
+        Rotation_x0 = rotationReading ->x();
+        Rotation_y0 = rotationReading ->y();
+    }
 }

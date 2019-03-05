@@ -12,6 +12,7 @@
 #include <QSettings>
 #include <QQueue>
 #include <QTimerEvent>
+#include <QRotationSensor>
 
 namespace Ui {
 class MainWindow;
@@ -87,13 +88,19 @@ private slots:
     void on_Button_buz_clicked();
     void on_Button_zero_clicked();
 
+    void on_Check_control_stateChanged(int arg1);
+
 private:
     Ui::MainWindow *ui;
     QTcpSocket *tcpClient;
     QSettings DefaultSettings;
     QByteArray Rec_FIFO;
     RecData Rec_Data;
+    QRotationSensor *rotationSensor;
+    QRotationReading *rotationReading;
     QQueue<CommandData> CommandList;
+    qreal Rotation_x,Rotation_y;
+    qreal Rotation_x0,Rotation_y0;
     int QtimerId;
     bool Linked;
     void Send_data(quint8 cmd, quint8 type, int32_t value);
