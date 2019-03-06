@@ -21,36 +21,6 @@ MainWindow::MainWindow(QWidget *parent) :
         ui->Edit_Port->setValue(DefaultSettings.value("PORT").toInt());
     else
         ui->Edit_Port->setValue(3721);
-    if(DefaultSettings.contains("BTN1_NAME"))
-    {
-        ui->Edit_button1->setText(DefaultSettings.value("BTN1_NAME").toString());
-        ui->Button_func1->setText(DefaultSettings.value("BTN1_NAME").toString());
-    }
-    if(DefaultSettings.contains("BTN2_NAME"))
-    {
-        ui->Edit_button2->setText(DefaultSettings.value("BTN2_NAME").toString());
-        ui->Button_func2->setText(DefaultSettings.value("BTN2_NAME").toString());
-    }
-    if(DefaultSettings.contains("BTN3_NAME"))
-    {
-        ui->Edit_button3->setText(DefaultSettings.value("BTN3_NAME").toString());
-        ui->Button_func3->setText(DefaultSettings.value("BTN3_NAME").toString());
-    }
-    if(DefaultSettings.contains("BTN4_NAME"))
-    {
-        ui->Edit_button4->setText(DefaultSettings.value("BTN4_NAME").toString());
-        ui->Button_func4->setText(DefaultSettings.value("BTN4_NAME").toString());
-    }
-    if(DefaultSettings.contains("REC_SETTING"))
-    {
-        Rec_setting = (DrawType)DefaultSettings.value("REC_SETTING").toInt();
-        if(Rec_setting == DRAW_WAVE)
-            ui->Radio_decode->setChecked(true);
-        else if(Rec_setting == DRAW_STRING)
-            ui->Radio_string->setChecked(true);
-    }
-    else
-        Rec_setting = DRAW_NOTHING;
 
     //初始化控件
     tcpClient = new QTcpSocket(this);
@@ -163,14 +133,7 @@ void MainWindow::on_Button_Link_clicked()
 
 void MainWindow::on_Button_apply_clicked()
 {
-    ui->Button_func1->setText(ui->Edit_button1->text());
-    ui->Button_func2->setText(ui->Edit_button2->text());
-    ui->Button_func3->setText(ui->Edit_button3->text());
-    ui->Button_func4->setText(ui->Edit_button4->text());
-    DefaultSettings.setValue("BTN1_NAME",ui->Edit_button1->text());
-    DefaultSettings.setValue("BTN2_NAME",ui->Edit_button2->text());
-    DefaultSettings.setValue("BTN3_NAME",ui->Edit_button3->text());
-    DefaultSettings.setValue("BTN4_NAME",ui->Edit_button4->text());
+
 }
 
 void MainWindow::on_Button_restore_clicked()
@@ -184,18 +147,6 @@ void MainWindow::on_Button_restore_clicked()
     int ret = msgBox.exec();
     if(ret == QMessageBox::Cancel)
         return;
-    ui->Button_func1->setText("功能1");
-    ui->Edit_button1->setText("功能1");
-    ui->Button_func2->setText("功能2");
-    ui->Edit_button2->setText("功能2");
-    ui->Button_func3->setText("功能3");
-    ui->Edit_button3->setText("功能3");
-    ui->Button_func4->setText("功能4");
-    ui->Edit_button4->setText("功能4");
-    DefaultSettings.remove("BTN1_NAME");
-    DefaultSettings.remove("BTN2_NAME");
-    DefaultSettings.remove("BTN3_NAME");
-    DefaultSettings.remove("BTN4_NAME");
 }
 
 void MainWindow::Send_data(SendType Type, int32_t variable, int32_t value)
