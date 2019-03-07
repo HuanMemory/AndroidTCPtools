@@ -310,7 +310,8 @@ void MainWindow::Refresh_Wave()
         ui->Plot->graph(3)->data()->remove(firstsortKey);
         ui->Plot->graph(4)->data()->remove(firstsortKey);
     }
-    ui->Plot->rescaleAxes();
+    if(ui->Checkbox_autoscale->isChecked())
+        ui->Plot->rescaleAxes();
     ui->Plot->replot();
 }
 
