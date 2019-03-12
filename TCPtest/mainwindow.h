@@ -15,43 +15,28 @@ namespace Ui {
 class MainWindow;
 }
 
-enum SendType
-{
-    SENDTYPE_FUNC,
-    SENDTYPE_SET
-};
-
-enum DrawType
-{
-    DRAW_NOTHING,
-    DRAW_STRING,
-    DRAW_WAVE
-};
-
 union SendData
 {
-    char buf[16];
+    char buf[12];
     struct
     {
-       char header[3];
-       char type;
-       int variable;
-       int value;
-       char cmd;
-       char state;
-       char len;
-       char sum;
+        uint8_t header[4];
+        int32_t value;
+        uint8_t cmd;
+        uint8_t type;
+        uint8_t todo;
+        uint8_t sum;
     }data;
 };
 
 union RecData
 {
-    char buf[44];
+    uint8_t buf[40];
     struct
     {
-        int32_t val[8];
-        int32_t cmd;
-        quint8 cmd_val[8];
+        int32_t data[8];
+        uint8_t cmd;
+        uint8_t val;
     }data;
 };
 
@@ -75,28 +60,32 @@ private slots:
     void on_Button_func2_clicked();
     void on_Button_func3_clicked();
     void on_Button_func4_clicked();
-    void on_Radio_none_toggled(bool checked);
-    void on_Radio_decode_toggled(bool checked);
-    void on_Radio_string_toggled(bool checked);
 
     void on_Button_clear_clicked();
 
 private:
     Ui::MainWindow *ui;
+
+    QString Setting_IP;
+    int Setting_Port;
+    QString Setting_DataName[8];
+    bool Setting_DataDisp[8];
+    int Setting_DataSel[4];
+    int Setting_MaxCount;
+    int Setting_MinTime;
+    QString Setting_ButtonName[4];
+
+    QStringList WaveName;
     QTcpSocket *tcpClient;
     QSettings DefaultSettings;
-    /*
-    QVector<double> X_data;
-    QVector<double> Y1_data;
-    QVector<double> Y2_data;
-    QVector<double> Y3_data;
-    QVector<double> Y4_data;*/
     QByteArray Rec_FIFO;
     RecData Rec_Data;
     bool Linked;
-    DrawType Rec_setting;
-    void Send_data(SendType Type,int variable,int value);
+    void Send_data(uint8_t cmd, uint8_t type, int32_t value);
     void Refresh_Wave();
+
+    void ApplyDefaultSettings();
+    void ApplyCurrentSettings();
 };
 
 #endif // MAINWINDOW_H
