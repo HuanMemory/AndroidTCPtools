@@ -10,6 +10,16 @@
 #include <QScreen>
 #include <QDebug>
 #include <QSettings>
+#include <QFile>
+#include <QDir>
+#include <QStandardPaths>
+#include <QFileDialog>
+#include <QDateTime>
+#include <QTextStream>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonParseError>
 
 namespace Ui {
 class MainWindow;
@@ -63,6 +73,10 @@ private slots:
 
     void on_Button_clear_clicked();
 
+    void on_Button_export_clicked();
+
+    void on_Button_import_clicked();
+
 private:
     Ui::MainWindow *ui;
 
@@ -86,6 +100,7 @@ private:
 
     void ApplyDefaultSettings();
     void ApplyCurrentSettings();
+    QJsonObject SaveCurrentSettingsToJson();
 };
 
 #endif // MAINWINDOW_H

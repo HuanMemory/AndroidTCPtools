@@ -140,9 +140,110 @@ void MainWindow::on_Button_restore_clicked()
     ApplyCurrentSettings();
 }
 
+QJsonObject MainWindow::SaveCurrentSettingsToJson()
+{
+    QJsonObject json;
+    QDateTime current_date_time = QDateTime::currentDateTime();
+    QString DataTime = current_date_time.toString(Qt::ISODate);
+    QJsonArray buttonnameArray;
+    QJsonArray wavenameArray;
+    QJsonArray waveselArray;
+    QJsonArray wavedispArray;
+    json.insert("time",DataTime);
+    json.insert("IP",Setting_IP);
+    json.insert("Port",Setting_Port);
+    json.insert("mintime",Setting_MinTime);
+    json.insert("maxcount",Setting_MaxCount);
+    for(int i = 0;i<4;i++)
+        buttonnameArray.append(Setting_ButtonName[i]);
+    for(int i = 0;i<4;i++)
+        waveselArray.append(Setting_DataSel[i]);
+    for(int i = 0;i<8;i++)
+        wavenameArray.append(Setting_DataName[i]);
+    for(int i = 0;i<8;i++)
+        wavedispArray.append(Setting_DataDisp[i]);
+    json.insert("ButtonName",buttonnameArray);
+    json.insert("WaveSelect",waveselArray);
+    json.insert("WaveName",wavenameArray);
+    json.insert("WaveDisplay",wavedispArray);
+    return json;
+}
+
 void MainWindow::on_Button_apply_clicked()
 {
     ApplyCurrentSettings();
+
+    QString filepath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/DLUT_ZBT_Tools";
+    QDir dir;
+    if(!dir.mkpath(filepath))
+        return;
+    filepath += "/WaveAutoSave.json";
+    QFile file(filepath);
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text))
+    {
+        QMessageBox::critical(NULL, "ERROR", "Can not open/creat autosave file!", QMessageBox::Yes, QMessageBox::Yes);
+        return;
+    }
+    QTextStream save(&file);
+    QJsonObject json = SaveCurrentSettingsToJson();
+    json.insert("Description","AutoSave");
+    QJsonDocument document;
+    document.setObject(json);
+    QByteArray byte_array = document.toJson(QJsonDocument::Indented);
+    QString JsonStr = QString(byte_array);
+    save << JsonStr;
+    file.close();
+}
+
+void MainWindow::on_Button_import_clicked()
+{
+    QString path = QFileDialog::getOpenFileName(this, "Open", ".", tr("Json File(*.json)"));
+    if (path.isEmpty())
+    return;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        QMessageBox::critical(NULL, "ERROR", "Can not open file!", QMessageBox::Yes, QMessageBox::Yes);
+        return;
+    }
+    QByteArray byteArray = file.readAll();
+    file.close();
+    QJsonParseError json_error;
+    QJsonDocument jsonDocument(QJsonDocument::fromJson(byteArray, &json_error));
+    if (json_error.error != QJsonParseError::NoError)
+    {
+        QMessageBox::critical(NULL, "ERROR", "Wrong File Content!", QMessageBox::Yes, QMessageBox::Yes);
+        return;
+    }
+    QJsonObject json = jsonDocument.object();
+    ui->Edit_IP->setCurrentText(json.value("IP").toString());
+    ui->Edit_Port->setValue(json.value("Port").toInt());
+    ///////////////////ToDo
+    ApplyCurrentSettings();
+}
+
+void MainWindow::on_Button_export_clicked()
+{
+    QString path = QFileDialog::getSaveFileName(this, "Save", "./PlotSettings.json", tr("Json File(*.json)"));
+    if (path.isEmpty())
+        return;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text))
+    {
+        QMessageBox::critical(NULL, "ERROR", "Can not open/creat file!", QMessageBox::Yes, QMessageBox::Yes);
+        return;
+    }
+    QTextStream save(&file);
+    QJsonObject json = SaveCurrentSettingsToJson();
+    QString description = QInputDialog::getText(this, tr("Log"),
+            tr("Description:"), QLineEdit::Normal);
+    json.insert("Description",description);
+    QJsonDocument document;
+    document.setObject(json);
+    QByteArray byte_array = document.toJson(QJsonDocument::Indented);
+    QString JsonStr = QString(byte_array);
+    save << JsonStr;
+    file.close();
 }
 
 void MainWindow::ApplyDefaultSettings()
